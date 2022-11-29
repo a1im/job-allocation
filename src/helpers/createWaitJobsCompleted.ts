@@ -11,6 +11,9 @@ export const createWaitJobsCompleted = <
         jobs: JAJob<JobData>[],
         timeout?: number,
     ): Promise<JAJob<JobData>[]> => {
+        if (!jobs.length) {
+            return [];
+        }
         const jobIds = jobs.map((it) => it.id);
         const resultJobs: JAJob<JobData>[] = [];
         let promiseResolve: (value?: unknown) => void;
