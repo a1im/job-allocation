@@ -15,7 +15,7 @@ export class JAWorker<Data> {
 
     protected readonly requestLimiter;
 
-    protected readonly concurrency;
+    readonly concurrency;
 
     protected status: JAWorkerStatus;
 
@@ -24,12 +24,13 @@ export class JAWorker<Data> {
     constructor(options: JAWorkerOptions<Data>) {
         const {
             autostart = false,
+            concurrency = 50,
         } = options;
 
         this.action = options.action;
         this.remoteQueue = options.remoteQueue;
         this.requestLimiter = options.limiter ? createRequestLimiter(options.limiter) : undefined;
-        this.concurrency = options.concurrency ?? 50;
+        this.concurrency = Math.max(1, concurrency);
         this.status = JAWorkerStatus.INIT;
         this.emitter = new EventEmitter();
 

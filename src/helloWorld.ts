@@ -1,26 +1,9 @@
-# job-allocation
-
-[![NPM](https://img.shields.io/npm/v/job-allocation.svg?style=flat-square)](https://www.npmjs.com/package/job-allocation)
-[![Downloads](https://img.shields.io/npm/dm/job-allocation?style=flat-square)](https://www.npmjs.com/package/job-allocation)
-
-Library for distributing jobs between nodes
-
-## Install
-```
-yarn add job-allocation
-# or
-npm i job-allocation
-```
-
-## Example
-
-```ts
 import {
     JAWorker,
     JARedisRemoteQueue,
     JAJob,
     createWaitJobsCompleted,
-} from 'job-allocation';
+} from './index';
 
 const action = async (job: JAJob<{name: string}>) => `Hello world, ${job.data.name}`;
 const remoteQueue = new JARedisRemoteQueue<{name: string}>({
@@ -66,7 +49,3 @@ worker.start();
  * Run in the control node
  */
 startTask();
-```
-
-## License
-MIT

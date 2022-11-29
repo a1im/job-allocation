@@ -1,17 +1,26 @@
 {
   "name": "job-allocation",
   "version": "1.0.3",
-  "description": "",
+  "description": "Library for distributing jobs between nodes",
   "main": "lib/src/index.js",
   "types": "lib/src/index.d.ts",
   "files": [
     "lib/**/*"
   ],
   "scripts": {
-    "dev": "",
+    "dev": "nodemon src/helloWorld.ts",
     "build": "tsc"
   },
-  "keywords": [],
+  "keywords": [
+    "job-allocation",
+    "tasks-allocation",
+    "distribution-job",
+    "distribution-tasks",
+    "job",
+    "tasks",
+    "allocation",
+    "distribution"
+  ],
   "homepage": "https://github.com/a1im/job-allocation",
   "bugs": {
     "url": "https://github.com/a1im/job-allocation/issues",
@@ -31,12 +40,14 @@
     "eslint": "^7.32.0 || ^8.2.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-plugin-import": "^2.25.2",
+    "nodemon": "^2.0.20",
     "release-it": "*",
+    "ts-node": "^10.9.1",
     "typescript": "^4.7.4"
   },
   "dependencies": {
     "ioredis": "^5.2.4",
-    "parse-base-error": "^1.0.1",
+    "parse-base-error": "^1.0.2",
     "uuid": "^9.0.0"
   }
 }

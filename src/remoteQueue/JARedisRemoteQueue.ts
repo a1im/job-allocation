@@ -70,10 +70,10 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
     }
 
     factoryNestedRemoteQueue(name: string) {
-        const nestedRemoteQueue = new JARedisRemoteQueue({
+        const nestedRemoteQueue = new JARedisRemoteQueue<any>({
             ...this.options,
             redisClient: this.redisClient,
-            prefix: `${this.prefix}-nested`,
+            prefix: this.key,
             name,
         });
 
@@ -97,35 +97,23 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
         });
     }
 
-    async add(...data: JAJob<Data>[]) {
-        const [firstData] = data;
-
-        if (firstData && data.length === 1) {
+    async addData(...job: JAJob<Data>[]) {
+        if (job.length) {
             await this.redisClient.rpush(
                 this.key,
-                JSON.stringify(firstData),
+                ...job.map((it) => JSON.stringify(it)),
             );
-        } else if (data.length) {
-            const multiCombo = data.reduce(
-                (acc, it) => {
-                    acc.rpush(
-                        this.key,
-                        JSON.stringify(it),
-                    );
-
-                    return acc;
-                },
-                this.redisClient.multi(),
-            );
-
-            await multiCombo.exec();
         }
     }
 
-    async addData(...jobData: Data[]) {
-        await this.add(
-            ...jobData.map((itJob) => createJAJob(itJob)),
-        );
+    async add(...data: Data[]) {
+        const jobs = data.map((it) => createJAJob(it));
+
+        if (jobs.length) {
+            await this.addData(...jobs);
+        }
+
+        return jobs;
     }
 
     async count() {

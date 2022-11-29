@@ -27,8 +27,8 @@ export interface JAJob<T> {
 }
 
 export interface JARemoteQueue<Data> {
-    factoryNestedRemoteQueue: <T = Data>(key: string) => JARemoteQueue<T>
-    add: (...data: JAJob<Data>[]) => Promise<void>
+    factoryNestedRemoteQueue: <T>(key: string) => JARemoteQueue<T>
+    add: (...data: Data[]) => Promise<JAJob<Data>[]>
     pop: () => Promise<JAJob<Data> | undefined>
     clear: () => Promise<void>
     destroy: () => Promise<void>
