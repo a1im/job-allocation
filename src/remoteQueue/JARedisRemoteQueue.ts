@@ -1,4 +1,4 @@
-import type Redis from 'ioredis';
+import Redis from 'ioredis';
 import { JAJob, JARemoteQueue } from '../worker/types';
 import { JARedisRemoteStorageQueue } from './types';
 import { parseNumber } from '../utils/parsers/parseNumber';
@@ -16,9 +16,7 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
 
     protected readonly blockingTimeout;
 
-    protected readonly redisClient;
-
-    protected readonly isExternalRedis;
+    protected readonly redisOptions;
 
     protected readonly redisClients: Redis[] = [];
 
@@ -27,7 +25,6 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
     constructor(options: JARedisRemoteStorageQueue) {
         const {
             name,
-            redisClient,
             blockingTimeout = 0,
             prefix = 'ta-remote-storage',
             host = 'localhost',
@@ -38,11 +35,10 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
         this.name = name;
         this.blockingTimeout = blockingTimeout;
         this.prefix = prefix;
-        this.isExternalRedis = Boolean(redisClient);
-        this.redisClient = redisClient ?? createIORedis({
+        this.redisOptions = {
             host,
             port: parseNumber(port),
-        });
+        };
     }
 
     get key() {
@@ -52,11 +48,11 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
         );
     }
 
-    private async transactionRedisClient<T extends(redisClient: Redis) => Promise<any>>(cb: T) {
+    private async transactionRedisClient<T extends(redisClient: Redis) => Promise<any>>(cb: T): Promise<Awaited<ReturnType<T>>> {
         let redisClient = this.redisClientStack.pop();
 
         if (!redisClient) {
-            redisClient = createIORedis(this.redisClient.options);
+            redisClient = createIORedis(this.redisOptions);
             this.redisClients.push(redisClient);
         }
 
@@ -72,7 +68,6 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
     factoryNestedRemoteQueue(name: string) {
         const nestedRemoteQueue = new JARedisRemoteQueue<any>({
             ...this.options,
-            redisClient: this.redisClient,
             prefix: this.key,
             name,
         });
@@ -99,10 +94,12 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
 
     async addData(...job: JAJob<Data>[]) {
         if (job.length) {
-            await this.redisClient.rpush(
-                this.key,
-                ...job.map((it) => JSON.stringify(it)),
-            );
+            await this.transactionRedisClient(async (redisClient) => {
+                await redisClient.rpush(
+                    this.key,
+                    ...job.map((it) => JSON.stringify(it)),
+                );
+            });
         }
     }
 
@@ -117,19 +114,20 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
     }
 
     async count() {
-        const count = await this.redisClient.llen(this.key);
+        return this.transactionRedisClient(async (redisClient) => {
+            const count = await redisClient.llen(this.key);
 
-        return count;
+            return count;
+        });
     }
 
     async clear() {
-        await this.redisClient.del(this.key);
+        await this.transactionRedisClient(async (redisClient) => {
+            await redisClient.del(this.key);
+        });
     }
 
     async destroy() {
-        if (!this.isExternalRedis) {
-            await this.redisClient.disconnect();
-        }
         await Promise.all([
             ...this.redisClients.map((itRedisClient) => itRedisClient.disconnect()),
         ]);
