@@ -4,7 +4,6 @@ import {
     JAEvent, JAEventCb, JAEventData, JAJob, JAWorkerOptions, JAWorkerStatus,
 } from './types';
 import { createRequestLimiter } from '../utils/createRequestLimiter';
-import { assert } from '../utils/assert';
 import { parseJAJobCompleted } from '../helpers/parseJAJobCompleted';
 import { parseJAJobError } from '../helpers/parseJAJobError';
 
@@ -19,7 +18,7 @@ export class JAWorker<Data> {
 
     protected status: JAWorkerStatus;
 
-    readonly remoteQueue;
+    readonly getJob;
 
     constructor(options: JAWorkerOptions<Data>) {
         const {
@@ -28,7 +27,7 @@ export class JAWorker<Data> {
         } = options;
 
         this.action = options.action;
-        this.remoteQueue = options.remoteQueue;
+        this.getJob = options.getJob;
         this.requestLimiter = options.limiter ? createRequestLimiter(options.limiter) : undefined;
         this.concurrency = Math.max(1, concurrency);
         this.status = JAWorkerStatus.INIT;
@@ -70,11 +69,11 @@ export class JAWorker<Data> {
 
         try {
             await this.requestLimiter?.wait();
-            const job = await this.remoteQueue.pop();
+            const job = await this.getJob();
 
-            assert(job, 'job not found');
-
-            await this.executeJob(job);
+            if (job) {
+                await this.executeJob(job);
+            }
         } catch (e) {
             const error = parseBaseError(e, 'JAWorker run');
 

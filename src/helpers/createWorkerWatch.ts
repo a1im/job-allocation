@@ -1,18 +1,25 @@
 import { EventEmitter } from 'events';
 import { parseBaseError } from 'parse-base-error';
 import { JAWorker } from '../worker/JAWorker';
-import { JAEvent, JAEventData, JAJob } from '../worker/types';
+import {
+    JAEvent, JAEventData, JAJob,
+} from '../worker/types';
+import { JARedisRemoteQueue } from '../remoteQueue/JARedisRemoteQueue';
 
 const GLOBAL_WATCH_NAME = 'GLOBAL_WATCH_NAME';
 
-export const createGlobalWatch = <
+export const createWorkerWatch = <
     Worker extends JAWorker<any>,
->(worker: Worker) => {
+    Queue extends JARedisRemoteQueue<any>,
+>({ worker, queue }: {
+    worker: Worker
+    queue: Queue
+}) => {
     type JobData = Worker extends JAWorker<infer P> ? P : unknown;
     const emitter = new EventEmitter();
-    const globalWatchRemoteQueue = worker.remoteQueue.factoryNestedRemoteQueue<JAJob<JobData>>(GLOBAL_WATCH_NAME);
+    const globalWatchRemoteQueue = queue.factoryNestedRemoteQueue(GLOBAL_WATCH_NAME);
     const globalWatchWorker = new JAWorker({
-        remoteQueue: globalWatchRemoteQueue,
+        getJob: () => globalWatchRemoteQueue.pop(),
         action: async (job) => {
             emitter.emit('job', job.data);
         },

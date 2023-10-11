@@ -19,6 +19,7 @@ export interface JAJob<T> {
     id: string
     groupId?: string
     onCreated: number
+    lastRetryTimestamp?: number
     onFinished?: number
     status: JAJobStatus
     errorMessage?: string
@@ -26,10 +27,15 @@ export interface JAJob<T> {
     data: T
 }
 
+export interface JAGetJob<Data> {
+    (): Promise<JAJob<Data> | undefined>
+}
+
 export interface JARemoteQueue<Data> {
-    factoryNestedRemoteQueue: <T>(key: string) => JARemoteQueue<T>
+    factoryNestedRemoteQueue: (key: string) => JARemoteQueue<Data>
     add: (...data: Data[]) => Promise<JAJob<Data>[]>
-    pop: () => Promise<JAJob<Data> | undefined>
+    pop: JAGetJob<Data>
+    popMove: (toKey: string) => Promise<JAJob<Data> | undefined>
     clear: () => Promise<void>
     destroy: () => Promise<void>
 }
@@ -40,7 +46,7 @@ export interface JAJobAction<Data> {
 
 export interface JAWorkerOptions<Data> {
     action: JAJobAction<Data>
-    remoteQueue: JARemoteQueue<Data>
+    getJob: JAGetJob<Data>
     autostart?: boolean
     concurrency?: number
     limiter?: {

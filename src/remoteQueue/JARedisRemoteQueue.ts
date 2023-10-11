@@ -26,7 +26,7 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
         const {
             name,
             blockingTimeout = 0,
-            prefix = 'ta-remote-storage',
+            prefix = 'ja-remote-queue',
             host = 'localhost',
             port = '6379',
         } = options ?? {};
@@ -48,7 +48,7 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
         );
     }
 
-    private async transactionRedisClient<T extends(redisClient: Redis) => Promise<any>>(cb: T): Promise<Awaited<ReturnType<T>>> {
+    async scopeRedisClient<T extends(redisClient: Redis) => Promise<any>>(cb: T): Promise<Awaited<ReturnType<T>>> {
         let redisClient = this.redisClientStack.pop();
 
         if (!redisClient) {
@@ -66,7 +66,7 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
     }
 
     factoryNestedRemoteQueue(name: string) {
-        const nestedRemoteQueue = new JARedisRemoteQueue<any>({
+        const nestedRemoteQueue = new JARedisRemoteQueue<Data>({
             ...this.options,
             prefix: this.key,
             name,
@@ -76,7 +76,7 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
     }
 
     async pop() {
-        return this.transactionRedisClient(async (redisClient) => {
+        return this.scopeRedisClient(async (redisClient) => {
             const items = await redisClient.blpop(
                 this.key,
                 this.blockingTimeout,
@@ -92,9 +92,26 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
         });
     }
 
+    async popMove(toKey: string) {
+        return this.scopeRedisClient(async (redisClient) => {
+            const item = await redisClient.blmove(
+                this.key,
+                toKey,
+                'LEFT',
+                'RIGHT',
+                this.blockingTimeout,
+            );
+            const job = item
+                ? JSON.parse(item) as JAJob<Data>
+                : undefined;
+
+            return job;
+        });
+    }
+
     async addData(...job: JAJob<Data>[]) {
         if (job.length) {
-            await this.transactionRedisClient(async (redisClient) => {
+            await this.scopeRedisClient(async (redisClient) => {
                 await redisClient.rpush(
                     this.key,
                     ...job.map((it) => JSON.stringify(it)),
@@ -113,8 +130,22 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
         return jobs;
     }
 
+    async removeJob(job: JAJob<Data>) {
+        const jobStr = JSON.stringify(job);
+
+        return this.scopeRedisClient(async (redisClient) => {
+            const res = await redisClient.lrem(
+                this.key,
+                1,
+                jobStr,
+            );
+
+            return res;
+        });
+    }
+
     async count() {
-        return this.transactionRedisClient(async (redisClient) => {
+        return this.scopeRedisClient(async (redisClient) => {
             const count = await redisClient.llen(this.key);
 
             return count;
@@ -122,7 +153,7 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
     }
 
     async clear() {
-        await this.transactionRedisClient(async (redisClient) => {
+        await this.scopeRedisClient(async (redisClient) => {
             await redisClient.del(this.key);
         });
     }

@@ -1,12 +1,20 @@
 import { JAWorker } from '../worker/JAWorker';
-import { createGlobalWatch } from './createGlobalWatch';
+import { createWorkerWatch } from './createWorkerWatch';
 import { JAJob } from '../worker/types';
+import { JARedisRemoteQueue } from '../remoteQueue/JARedisRemoteQueue';
 
 export const createWaitJobsCompleted = <
     Worker extends JAWorker<any>,
->(worker: Worker) => {
+    Queue extends JARedisRemoteQueue<any>,
+>({ worker, queue }: {
+    worker: Worker
+    queue: Queue
+}) => {
     type JobData = Worker extends JAWorker<infer P> ? P : unknown;
-    const globalWatch = createGlobalWatch(worker);
+    const globalWatch = createWorkerWatch({
+        worker,
+        queue,
+    });
     const waitJobsCompleted = async (
         jobs: JAJob<JobData>[],
         timeout?: number,
