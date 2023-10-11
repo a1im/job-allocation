@@ -28,18 +28,17 @@ const startTask = async () => {
      */
     await remoteQueue.clear();
     await remoteQueueTemp.clear();
-    await remoteQueue.add(
-        { name: 'foo' },
-        { name: 'bar' },
-    );
+    await remoteQueue.add({ name: 'foo' });
+    await delay(1000);
+    await remoteQueue.add({ name: 'bar' });
 
     setInterval(() => {
         recoveryUnfinishedJobs({
             queueJobs: remoteQueue,
             queueRunningJobs: remoteQueueTemp,
-            timeout: 5000,
+            retryTimeout: 4000,
         });
-    }, 2000);
+    }, 1000);
 };
 
 /**

@@ -109,7 +109,7 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
         });
     }
 
-    async addData(...job: JAJob<Data>[]) {
+    async addJob(...job: JAJob<Data>[]) {
         if (job.length) {
             await this.scopeRedisClient(async (redisClient) => {
                 await redisClient.rpush(
@@ -123,9 +123,7 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
     async add(...data: Data[]) {
         const jobs = data.map((it) => createJAJob(it));
 
-        if (jobs.length) {
-            await this.addData(...jobs);
-        }
+        await this.addJob(...jobs);
 
         return jobs;
     }

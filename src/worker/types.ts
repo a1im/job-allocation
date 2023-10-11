@@ -17,10 +17,11 @@ export enum JAJobStatus {
 
 export interface JAJob<T> {
     id: string
-    groupId?: string
     onCreated: number
-    lastRetryTimestamp?: number
     onFinished?: number
+    retryTimeout?: number
+    retryCount?: number
+    lastRetryTimestamp?: number
     status: JAJobStatus
     errorMessage?: string
     returnData?: any
