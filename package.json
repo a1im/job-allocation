@@ -1,6 +1,6 @@
 {
   "name": "job-allocation",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Library for distributing jobs between nodes",
   "main": "lib/src/index.js",
   "types": "lib/src/index.d.ts",
