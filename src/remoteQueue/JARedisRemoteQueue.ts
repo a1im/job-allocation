@@ -6,6 +6,7 @@ import { generateStorageKey } from '../helpers/generateStorageKey';
 import { isArray } from '../utils/predicate/isArray';
 import { createJAJob } from '../helpers/createJAJob';
 import { createIORedis } from '../helpers/createIORedis';
+import { delay } from '../utils/delay';
 
 export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
     protected readonly options: JARedisRemoteStorageQueue;
@@ -15,6 +16,8 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
     protected readonly prefix;
 
     protected readonly blockingTimeout;
+
+    protected readonly connectionPool;
 
     protected readonly redisOptions;
 
@@ -29,12 +32,14 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
             prefix = 'ja-remote-queue',
             host = 'localhost',
             port = '6379',
+            connectionPool = 10,
         } = options ?? {};
 
         this.options = options;
         this.name = name;
         this.blockingTimeout = blockingTimeout;
         this.prefix = prefix;
+        this.connectionPool = connectionPool;
         this.redisOptions = {
             host,
             port: parseNumber(port),
@@ -50,6 +55,12 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
 
     async scopeRedisClient<T extends(redisClient: Redis) => Promise<any>>(cb: T): Promise<Awaited<ReturnType<T>>> {
         let redisClient = this.redisClientStack.pop();
+
+        if (!redisClient && this.redisClients.length >= this.connectionPool) {
+            await delay(100);
+
+            return this.scopeRedisClient<T>(cb);
+        }
 
         if (!redisClient) {
             redisClient = createIORedis(this.redisOptions);

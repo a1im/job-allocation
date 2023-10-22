@@ -5,4 +5,5 @@ export interface JARedisRemoteStorageQueue {
     prefix?: string
     port?: string | number
     host?: string
+    connectionPool?: number
 }
