@@ -8,7 +8,7 @@
     "lib/**/*"
   ],
   "scripts": {
-    "dev": "nodemon src/helloWorldRecovery.ts",
+    "dev": "nodemon src/helloWorld.ts",
     "build": "tsc"
   },
   "keywords": [

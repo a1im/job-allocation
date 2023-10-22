@@ -6,7 +6,7 @@ import { generateStorageKey } from '../helpers/generateStorageKey';
 import { isArray } from '../utils/predicate/isArray';
 import { createJAJob } from '../helpers/createJAJob';
 import { createIORedis } from '../helpers/createIORedis';
-import { delay } from '../utils/delay';
+import { toggleValue } from '../utils/array/toggleValue';
 
 export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
     protected readonly options: JARedisRemoteStorageQueue;
@@ -56,12 +56,6 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
     async scopeRedisClient<T extends(redisClient: Redis) => Promise<any>>(cb: T): Promise<Awaited<ReturnType<T>>> {
         let redisClient = this.redisClientStack.pop();
 
-        if (!redisClient && this.redisClients.length >= this.connectionPool) {
-            await delay(100);
-
-            return this.scopeRedisClient<T>(cb);
-        }
-
         if (!redisClient) {
             redisClient = createIORedis(this.redisOptions);
             this.redisClients.push(redisClient);
@@ -72,7 +66,12 @@ export class JARedisRemoteQueue<Data> implements JARemoteQueue<Data> {
 
             return result;
         } finally {
-            this.redisClientStack.push(redisClient);
+            if (this.redisClients.length > this.connectionPool) {
+                redisClient.disconnect();
+                toggleValue(this.redisClients, redisClient, false);
+            } else {
+                this.redisClientStack.push(redisClient);
+            }
         }
     }
 
