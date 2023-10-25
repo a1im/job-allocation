@@ -15,51 +15,55 @@ export const recoveryUnfinishedJobs = async ({
     await queueRunningJobs.scopeRedisClient(async (redisClient) => {
         await redisClient.watch(queueRunningJobs.key);
         const dateNow = Date.now();
-        const [jobStr] = await redisClient.lrange(
-            queueRunningJobs.key,
-            0,
-            0,
-        );
 
-        if (jobStr) {
-            const job = JSON.parse(jobStr) as JAJob<any>;
-            const lastRetryTimestamp = job.lastRetryTimestamp ?? job.onCreated;
-            const jobRetryTimeout = job.retryTimeout ?? retryTimeout;
-            const jobRetryCount = job.retryCount ?? retryCount;
-            const isRetryJob = Boolean(
-                jobRetryCount > 0
-                && jobRetryTimeout
-                && (lastRetryTimestamp + jobRetryTimeout) < dateNow,
-            );
-            const isRemoveJob = Boolean(
-                isRetryJob
-              || jobRetryCount <= 0
-              || !jobRetryTimeout,
+        try {
+            const jobStr = await redisClient.lindex(
+                queueRunningJobs.key,
+                0,
             );
 
-            if (isRemoveJob) {
-                let multi = await redisClient
-                    .multi()
-                    .lrem(queueRunningJobs.key, 1, jobStr);
+            if (jobStr) {
+                const job = JSON.parse(jobStr) as JAJob<any>;
+                const lastRetryTimestamp = job.lastRetryTimestamp ?? job.onCreated;
+                const jobRetryTimeout = job.retryTimeout ?? retryTimeout;
+                const jobRetryCount = job.retryCount ?? retryCount;
+                const isRetryJob = Boolean(
+                    jobRetryCount > 0
+                    && jobRetryTimeout
+                    && (lastRetryTimestamp + jobRetryTimeout) < dateNow,
+                );
+                const isRemoveJob = Boolean(
+                    isRetryJob
+                  || jobRetryCount <= 0
+                  || !jobRetryTimeout,
+                );
 
-                if (isRetryJob) {
-                    job.lastRetryTimestamp = dateNow;
-                    job.retryCount = jobRetryCount - 1;
-                    multi = multi.rpush(queueJobs.key, JSON.stringify(job));
+                if (isRemoveJob) {
+                    let multi = await redisClient
+                        .multi()
+                        .lrem(queueRunningJobs.key, 1, jobStr);
+
+                    if (isRetryJob) {
+                        job.lastRetryTimestamp = dateNow;
+                        job.retryCount = jobRetryCount - 1;
+                        multi = multi.rpush(queueJobs.key, JSON.stringify(job));
+                    }
+
+                    await multi.exec();
+
+                    await recoveryUnfinishedJobs({
+                        queueJobs,
+                        queueRunningJobs,
+                        retryTimeout,
+                        retryCount,
+                    });
+                } else {
+                    await Promise.reject(new Error('unwatch'));
                 }
-
-                await multi.exec();
-
-                await recoveryUnfinishedJobs({
-                    queueJobs,
-                    queueRunningJobs,
-                    retryTimeout,
-                    retryCount,
-                });
             } else {
-                await redisClient.unwatch();
+                await Promise.reject(new Error('unwatch'));
             }
-        } else {
+        } catch (e) {
             await redisClient.unwatch();
         }
     });
